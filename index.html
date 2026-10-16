@@ -3,19 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PDF to Word Converter</title>
+  <title>PDF to Word Converter — Pro Edition</title>
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- PDF.js for reading and parsing PDF files in the browser -->
+  <!-- PDF.js for parsing and rendering PDF pages -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- docx.js for generating genuine Microsoft Word (.docx) files -->
   <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
-  <!-- FileSaver.js for triggering browser file downloads -->
+  <!-- FileSaver.js for triggering file downloads -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <!-- Tesseract.js for in-browser AI/OCR of scanned image PDFs -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- Canvas Confetti for celebrating Pro upgrade -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   
   <style>
     :root {
@@ -23,6 +27,10 @@
       --primary-hover: #1d4ed8;
       --success: #16a34a;
       --success-hover: #15803d;
+      --ocr-accent: #7c3aed;
+      --ocr-light: #f5f3ff;
+      --amber: #f59e0b;
+      --amber-light: #fef3c7;
       --bg: #f8fafc;
       --card-bg: #ffffff;
       --text-main: #0f172a;
@@ -46,41 +54,329 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 20px;
+      padding: 24px 20px 60px;
+      position: relative;
     }
 
     .container {
       width: 100%;
-      max-width: 720px;
+      max-width: 760px;
+    }
+
+    /* ========================================================
+       FLOATING GOOGLE ONE-TAP POPUP (TOP-RIGHT CORNER)
+       ======================================================== */
+    .google-one-tap-card {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 320px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.15), 0 4px 12px rgba(0, 0, 0, 0.05);
+      padding: 16px;
+      z-index: 1000;
+      animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      display: none;
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(40px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .one-tap-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .one-tap-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+
+    .one-tap-close {
+      background: none;
+      border: none;
+      color: #9ca3af;
+      cursor: pointer;
+      font-size: 18px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .one-tap-close:hover {
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    .one-tap-body {
+      font-size: 12px;
+      color: #4b5563;
+      line-height: 1.5;
+      margin-bottom: 14px;
+    }
+
+    .btn-google-primary {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #ffffff;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-google-primary:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .btn-google-primary svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .one-tap-footer {
+      text-align: center;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 10px;
+    }
+
+    /* ========================================================
+       TOP NAVIGATION BAR
+       ======================================================== */
+    .top-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: #eff6ff;
+      color: var(--primary);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .brand-name {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+    }
+
+    .user-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Google Sign-In Button on Top Nav */
+    .btn-google {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #ffffff;
+      color: #374151;
+      border: 1px solid #d1d5db;
+      padding: 7px 14px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-google:hover {
+      background: #f9fafb;
+      border-color: #9ca3af;
+    }
+
+    .btn-google svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* User Profile Pill */
+    .user-pill {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      padding: 4px 12px 4px 4px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .user-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .user-email-text {
+      max-width: 140px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-main);
+    }
+
+    .btn-logout {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 2px 4px;
+      font-size: 11px;
+    }
+
+    .btn-logout:hover {
+      color: #ef4444;
+    }
+
+    /* Usage Badges */
+    .usage-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #eff6ff;
+      color: var(--primary);
+      border: 1px solid #dbeafe;
+    }
+
+    .usage-badge.warning {
+      background: var(--amber-light);
+      color: #b45309;
+      border-color: #fde68a;
+    }
+
+    .usage-badge.danger {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+
+    .usage-badge.pro {
+      background: linear-gradient(135deg, #ede9fe 0%, #fef3c7 100%);
+      color: #6d28d9;
+      border-color: #ddd6fe;
+    }
+
+    .btn-upgrade-top {
+      background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+      color: white;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+    }
+
+    .btn-upgrade-top:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
     }
 
     .header {
       text-align: center;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
+    }
+
+    .badges-row {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
     }
 
     .badge {
-      display: inline-block;
-      padding: 6px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
       background: #eff6ff;
       color: var(--primary);
       border-radius: 9999px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
-      margin-bottom: 12px;
       border: 1px solid #dbeafe;
+    }
+
+    .badge-ocr {
+      background: var(--ocr-light);
+      color: var(--ocr-accent);
+      border-color: #ddd6fe;
     }
 
     .title {
       font-size: 32px;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: -0.02em;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .subtitle {
       color: var(--text-muted);
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.5;
     }
 
@@ -89,15 +385,102 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 32px;
+      padding: 30px;
       transition: all 0.2s ease;
+    }
+
+    /* OCR Toggle Box */
+    .ocr-toggle-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #f8fafc 0%, #f5f3ff 100%);
+      border: 1px solid #ddd6fe;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 18px;
+    }
+
+    .ocr-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ocr-icon-bubble {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #ede9fe;
+      color: var(--ocr-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .ocr-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #4c1d95;
+    }
+
+    .ocr-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #cbd5e1;
+      transition: .3s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--ocr-accent);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
     }
 
     /* Drop Zone */
     .dropzone {
       border: 2px dashed #cbd5e1;
       border-radius: 12px;
-      padding: 48px 24px;
+      padding: 40px 24px;
       text-align: center;
       cursor: pointer;
       background: #fafafa;
@@ -111,9 +494,9 @@
     }
 
     .dropzone-icon {
-      width: 56px;
-      height: 56px;
-      margin: 0 auto 16px;
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 14px;
       background: #eff6ff;
       border-radius: 50%;
       display: flex;
@@ -123,18 +506,18 @@
     }
 
     .dropzone-icon svg {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
     }
 
     .dropzone-title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .dropzone-subtitle {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-muted);
     }
 
@@ -142,11 +525,11 @@
       display: none;
     }
 
-    /* File Info & Processing State */
+    /* File Details */
     .file-details {
       display: none;
-      margin-top: 24px;
-      padding: 16px;
+      margin-top: 20px;
+      padding: 14px;
       background: #f1f5f9;
       border-radius: 10px;
       display: flex;
@@ -163,19 +546,19 @@
     .file-icon {
       color: #ef4444;
       background: #fee2e2;
-      padding: 10px;
+      padding: 8px;
       border-radius: 8px;
       display: flex;
     }
 
     .file-icon svg {
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
     }
 
     .file-name {
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
       max-width: 320px;
       white-space: nowrap;
       overflow: hidden;
@@ -183,7 +566,7 @@
     }
 
     .file-size {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
       margin-top: 2px;
     }
@@ -191,14 +574,14 @@
     /* Progress bar */
     .progress-container {
       display: none;
-      margin-top: 24px;
+      margin-top: 20px;
     }
 
     .progress-header {
       display: flex;
       justify-content: space-between;
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       margin-bottom: 8px;
     }
 
@@ -218,7 +601,16 @@
       transition: width 0.3s ease;
     }
 
-    /* Action buttons */
+    .progress-ocr-note {
+      font-size: 12px;
+      color: var(--ocr-accent);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Buttons */
     .btn {
       display: inline-flex;
       align-items: center;
@@ -272,7 +664,7 @@
       color: var(--text-main);
     }
 
-    /* Preview Box */
+    /* Live Preview Box */
     .preview-box {
       display: none;
       margin-top: 24px;
@@ -280,8 +672,15 @@
       border-radius: 10px;
       padding: 16px;
       background: #ffffff;
-      max-height: 220px;
+      max-height: 200px;
       overflow-y: auto;
+    }
+
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
     }
 
     .preview-title {
@@ -290,7 +689,6 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--text-muted);
-      margin-bottom: 8px;
     }
 
     .preview-content {
@@ -300,7 +698,177 @@
       white-space: pre-wrap;
     }
 
-    /* Footer Trust Banner */
+    /* ========================================================
+       "UPGRADE TO PRO" PAYWALL MODAL (FREE TRIAL ENDED)
+       ======================================================== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 1100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      max-width: 500px;
+      width: 100%;
+      padding: 32px;
+      position: relative;
+      animation: modalFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalFadeIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: #f1f5f9;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 18px;
+    }
+
+    .modal-close:hover {
+      background: #e2e8f0;
+      color: var(--text-main);
+    }
+
+    .modal-badge-expired {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: #fee2e2;
+      color: #dc2626;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .modal-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .modal-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    /* Modal Google Account Banner */
+    .modal-account-banner {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-account-info {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .modal-account-info strong {
+      color: var(--text-main);
+    }
+
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .price-option {
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .price-option.selected {
+      border-color: var(--ocr-accent);
+      background: #f5f3ff;
+    }
+
+    .price-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .price-amount {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--ocr-accent);
+      margin-bottom: 2px;
+    }
+
+    .price-period {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .feature-checklist {
+      list-style: none;
+      margin-bottom: 20px;
+    }
+
+    .feature-checklist li {
+      font-size: 12px;
+      color: #334155;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-checklist svg {
+      width: 16px;
+      height: 16px;
+      color: var(--success);
+      flex-shrink: 0;
+    }
+
+    /* Trust Features */
     .features {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -310,22 +878,22 @@
 
     .feature-item {
       text-align: center;
-      padding: 12px;
+      padding: 10px;
     }
 
     .feature-icon {
-      font-size: 20px;
-      margin-bottom: 6px;
+      font-size: 18px;
+      margin-bottom: 4px;
     }
 
     .feature-title {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--text-main);
     }
 
     .feature-desc {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
       margin-top: 2px;
     }
@@ -333,15 +901,112 @@
 </head>
 <body>
 
+  <!-- ========================================================
+       FLOATING GOOGLE SIGN-IN PROMPT (RIGHT-HAND TOP CORNER)
+       Shows on arrival. User can click [X] or [Sign in with Google]
+       ======================================================== -->
+  <div id="googleOneTapCard" class="google-one-tap-card">
+    <div class="one-tap-header">
+      <div class="one-tap-brand">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+        </svg>
+        <span>Sign in with Google</span>
+      </div>
+      <!-- User can Cross it out (dismiss) -->
+      <button class="one-tap-close" onclick="dismissGoogleOneTap()" title="Close">&times;</button>
+    </div>
+    <div class="one-tap-body">
+      Sign in with your Gmail account to sync your conversions and automatically link your Pro subscription.
+    </div>
+    <!-- User can select Sign in -->
+    <button class="btn-google-primary" onclick="triggerGoogleSignIn(true)">
+      <svg viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+    <div class="one-tap-footer">
+      🔒 Secure 1-click Google authentication
+    </div>
+  </div>
+
   <div class="container">
+
+    <!-- Top Navigation Bar -->
+    <nav class="top-nav">
+      <div class="brand-group">
+        <div class="brand-logo">W</div>
+        <div class="brand-name">DocuConvert AI</div>
+      </div>
+
+      <div class="user-actions">
+        <!-- Daily Limit Badge -->
+        <div id="usageCounterBadge" class="usage-badge">
+          <span id="usageDot" style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#2563eb;"></span>
+          <span id="usageText">2 Free Conversions Left</span>
+        </div>
+
+        <!-- Google Login Button (When Logged Out) -->
+        <button id="googleLoginBtn" class="btn-google" onclick="triggerGoogleSignIn()">
+          <svg viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span>Sign in with Google</span>
+        </button>
+
+        <!-- Logged-In User Profile Pill -->
+        <div id="userProfilePill" class="user-pill">
+          <div class="user-avatar" id="userAvatarText">A</div>
+          <span class="user-email-text" id="userEmailText">user@gmail.com</span>
+          <button class="btn-logout" title="Sign out" onclick="signOutUser()">Log out</button>
+        </div>
+
+        <!-- Upgrade Pro Button -->
+        <button id="upgradeTopBtn" class="btn-upgrade-top" onclick="openProModal()">
+          <span>⭐ Upgrade to Pro</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Header Section -->
     <div class="header">
-      <span class="badge">100% Free & Secure</span>
-      <h1 class="title">PDF to Word Converter</h1>
-      <p class="subtitle">Upload your PDF document to convert it into an editable Microsoft Word (.docx) file instantly.</p>
+      <div class="badges-row">
+        <span class="badge">100% Client-Side Privacy</span>
+        <span class="badge badge-ocr">✨ AI & OCR Vision Active</span>
+      </div>
+      <h1 class="title">Convert PDF to Editable Word</h1>
+      <p class="subtitle">Convert standard text documents or scanned image PDFs into Microsoft Word (.docx) files.</p>
     </div>
 
+    <!-- Main Converter Card -->
     <div class="card">
-      <!-- Upload Zone -->
+
+      <!-- AI / OCR Mode Control Toggle -->
+      <div class="ocr-toggle-card">
+        <div class="ocr-info">
+          <div class="ocr-icon-bubble">👁️</div>
+          <div>
+            <div class="ocr-title">AI / OCR Optical Recognition Mode</div>
+            <div class="ocr-desc">Auto-extracts text from scanned contracts, photos, invoices & receipts</div>
+          </div>
+        </div>
+        <label class="switch" title="Toggle AI / OCR Scan Mode">
+          <input type="checkbox" id="ocrToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Upload Dropzone -->
       <div id="dropzone" class="dropzone">
         <div class="dropzone-icon">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -349,11 +1014,11 @@
           </svg>
         </div>
         <div class="dropzone-title">Click to upload or drag & drop your PDF</div>
-        <div class="dropzone-subtitle">Supports multi-page text, headers, and paragraphs</div>
+        <div class="dropzone-subtitle">Supports text documents, multi-page PDFs, and scanned image files</div>
         <input type="file" id="fileInput" accept="application/pdf">
       </div>
 
-      <!-- File Details -->
+      <!-- File Details State -->
       <div id="fileDetails" class="file-details" style="display: none;">
         <div class="file-meta">
           <div class="file-icon">
@@ -372,17 +1037,24 @@
       <!-- Progress Section -->
       <div id="progressContainer" class="progress-container">
         <div class="progress-header">
-          <span id="progressStatus">Reading PDF...</span>
+          <span id="progressStatus">Initializing document...</span>
           <span id="progressPercent">0%</span>
         </div>
         <div class="progress-bar-bg">
           <div id="progressBarFill" class="progress-bar-fill"></div>
         </div>
+        <div id="ocrStatusNote" class="progress-ocr-note" style="display: none;">
+          <span style="font-size: 14px;">✨</span>
+          <span id="ocrDetailText">AI Vision OCR running on page...</span>
+        </div>
       </div>
 
-      <!-- Live Text Preview -->
+      <!-- Live Preview Box -->
       <div id="previewBox" class="preview-box">
-        <div class="preview-title">Extracted Content Preview:</div>
+        <div class="preview-header">
+          <span class="preview-title">Extracted Text Preview:</span>
+          <span id="ocrModeBadge" class="badge badge-ocr" style="font-size: 11px; padding: 2px 8px; display: none;">OCR Recognized</span>
+        </div>
         <div id="previewContent" class="preview-content"></div>
       </div>
 
@@ -391,16 +1063,25 @@
         <span>Convert to Word (.docx)</span>
       </button>
 
-      <!-- Download Button -->
+      <!-- Download Button Section -->
       <div id="downloadSection" style="display: none;">
-        <button id="downloadBtn" class="btn btn-success">
-          <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-          </svg>
-          <span>Download Word Document (.docx)</span>
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px; margin-top: 20px; text-align: center;">
+          <div style="font-size: 16px; font-weight: 700; color: #166534; margin-bottom: 6px;">🎉 Conversion Complete!</div>
+          <p style="font-size: 13px; color: #15803d; margin-bottom: 14px;">Your editable Microsoft Word document is ready.</p>
+          <button id="downloadBtn" class="btn btn-success" style="margin-top: 0; width: 100%;">
+            <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            <span>Download Word Document (.docx)</span>
+          </button>
+        </div>
+
+        <button id="resetBtn" class="btn btn-primary" style="margin-top: 14px; background: #2563eb;">
+          <svg style="width:18px;height:18px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <span id="nextScanBtnText">Upload 2nd Document (1 Free Scan Remaining)</span>
         </button>
-        <button id="resetBtn" class="btn btn-outline">Convert Another Document</button>
       </div>
+
     </div>
 
     <!-- Trust Features -->
@@ -408,18 +1089,89 @@
       <div class="feature-item">
         <div class="feature-icon">🔒</div>
         <div class="feature-title">100% Client-Side</div>
-        <div class="feature-desc">Files never leave your browser.</div>
+        <div class="feature-desc">Files never leave your device.</div>
       </div>
       <div class="feature-item">
-        <div class="feature-icon">⚡</div>
-        <div class="feature-title">Fast Conversion</div>
-        <div class="feature-desc">Reconstructs text and headings.</div>
+        <div class="feature-icon">✨</div>
+        <div class="feature-title">AI / OCR Optical Scan</div>
+        <div class="feature-desc">Converts photos & scanned pages.</div>
       </div>
       <div class="feature-item">
         <div class="feature-icon">📄</div>
-        <div class="feature-title">Real .docx Output</div>
-        <div class="feature-desc">Compatible with Word & Google Docs.</div>
+        <div class="feature-title">Genuine .docx Output</div>
+        <div class="feature-desc">Compatible with MS Word & Docs.</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       "FREE TRIAL ENDED" UPGRADE TO PRO PAYWALL MODAL
+       Pops up automatically after 2 free scans!
+       ======================================================== -->
+  <div id="proModal" class="modal-overlay">
+    <div class="modal">
+      <button class="modal-close" onclick="closeProModal()">&times;</button>
+      
+      <div class="modal-badge-expired">
+        <span>⚠️ Free Trial Limit Reached</span>
+      </div>
+      <h2 class="modal-title">Your Free Trial Has Ended!</h2>
+      <p class="modal-subtitle" id="modalSubMessage">
+        You have used your <strong>2 free scans</strong>. Upgrade to Pro now to unlock unlimited document conversions anytime without restrictions!
+      </p>
+
+      <!-- Account Connection Status Inside Modal -->
+      <div class="modal-account-banner" id="modalAccountBanner">
+        <div class="modal-account-info" id="modalAccountInfo">
+          <span>Not signed in. Sign in to link your subscription:</span>
+        </div>
+        <button class="btn-google" id="modalGoogleBtn" style="padding: 5px 10px; font-size: 11px;" onclick="triggerGoogleSignIn()">
+          <span>Sign in with Google</span>
+        </button>
+      </div>
+
+      <!-- Pricing Plans -->
+      <div class="pricing-cards">
+        <div class="price-option selected" id="optMonthly" onclick="selectPlan('monthly')">
+          <div class="price-name">Monthly Pass</div>
+          <div class="price-amount">$4.99</div>
+          <div class="price-period">per month</div>
+        </div>
+        <div class="price-option" id="optYearly" onclick="selectPlan('yearly')">
+          <div class="price-name">Annual Pass</div>
+          <div class="price-amount">$39</div>
+          <div class="price-period">per year (Save 35%)</div>
+        </div>
+      </div>
+
+      <!-- Highlighting All Pro Features -->
+      <ul class="feature-checklist">
+        <li>
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+          <span><strong>Unlimited Conversions for Lifetime</strong> (No daily limits or wait times)</span>
+        </li>
+        <li>
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+          <span><strong>AI & OCR Optical Scanner</strong> (Converts scanned contracts, photos & receipts)</span>
+        </li>
+        <li>
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+          <span><strong>High-Speed Batch Processing & Files up to 100 MB</strong></span>
+        </li>
+        <li>
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+          <span><strong>Automatically Linked to Your Gmail Account</strong></span>
+        </li>
+      </ul>
+
+      <!-- Primary Checkout CTA Button: AUTOMATIC INSTANT UPGRADE -->
+      <button class="btn btn-primary" id="autoCheckoutBtn" style="background: linear-gradient(135deg, #7c3aed, #4f46e5); font-weight: 700;" onclick="handleAutomaticProPurchase()">
+        <span id="checkoutBtnText">Upgrade to Pro Now ($4.99)</span>
+      </button>
+
+      <p style="text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 12px;">
+        🔒 Instant automatic activation. Unlocks unlimited conversions immediately.
+      </p>
     </div>
   </div>
 
@@ -427,6 +1179,7 @@
     // Setup PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // DOM Elements
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const fileDetails = document.getElementById('fileDetails');
@@ -434,21 +1187,279 @@
     const fileSizeEl = document.getElementById('fileSize');
     const removeBtn = document.getElementById('removeBtn');
     const convertBtn = document.getElementById('convertBtn');
+    const ocrToggle = document.getElementById('ocrToggle');
     const progressContainer = document.getElementById('progressContainer');
     const progressBarFill = document.getElementById('progressBarFill');
     const progressStatus = document.getElementById('progressStatus');
     const progressPercent = document.getElementById('progressPercent');
+    const ocrStatusNote = document.getElementById('ocrStatusNote');
+    const ocrDetailText = document.getElementById('ocrDetailText');
     const previewBox = document.getElementById('previewBox');
     const previewContent = document.getElementById('previewContent');
+    const ocrModeBadge = document.getElementById('ocrModeBadge');
     const downloadSection = document.getElementById('downloadSection');
     const downloadBtn = document.getElementById('downloadBtn');
     const resetBtn = document.getElementById('resetBtn');
 
+    // Google One-Tap & Pro Modal Elements
+    const googleOneTapCard = document.getElementById('googleOneTapCard');
+    const usageCounterBadge = document.getElementById('usageCounterBadge');
+    const usageDot = document.getElementById('usageDot');
+    const usageText = document.getElementById('usageText');
+    const upgradeTopBtn = document.getElementById('upgradeTopBtn');
+    const googleLoginBtn = document.getElementById('googleLoginBtn');
+    const userProfilePill = document.getElementById('userProfilePill');
+    const userAvatarText = document.getElementById('userAvatarText');
+    const userEmailText = document.getElementById('userEmailText');
+    const proModal = document.getElementById('proModal');
+    const modalSubMessage = document.getElementById('modalSubMessage');
+    const modalAccountInfo = document.getElementById('modalAccountInfo');
+    const modalGoogleBtn = document.getElementById('modalGoogleBtn');
+    const checkoutBtnText = document.getElementById('checkoutBtnText');
+    const autoCheckoutBtn = document.getElementById('autoCheckoutBtn');
+
     let currentFile = null;
     let convertedDocBlob = null;
+    let tesseractWorker = null;
+    let selectedPlan = 'monthly';
 
-    // Dropzone click & drag events
-    dropzone.addEventListener('click', () => fileInput.click());
+    const DAILY_FREE_LIMIT = 2; // Exactly 2 free scans / conversions!
+
+    // --- GOOGLE ONE-TAP & AUTH LOGIC ---
+
+    // Show Google One-Tap Prompt in Top-Right Corner upon visiting
+    function checkGoogleOneTapPrompt() {
+      const user = getCurrentUser();
+      const dismissed = sessionStorage.getItem('google_onetap_dismissed');
+      if (!user && !dismissed) {
+        // Show after 0.5s smoothly
+        setTimeout(() => {
+          googleOneTapCard.style.display = 'block';
+        }, 500);
+      } else {
+        googleOneTapCard.style.display = 'none';
+      }
+    }
+
+    // User can cross it out (dismiss)
+    function dismissGoogleOneTap() {
+      googleOneTapCard.style.display = 'none';
+      sessionStorage.setItem('google_onetap_dismissed', 'true');
+    }
+
+    // Retrieve current logged in user
+    function getCurrentUser() {
+      try {
+        const stored = localStorage.getItem('pdf_current_user');
+        return stored ? JSON.parse(stored) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function setCurrentUser(user) {
+      if (user) {
+        localStorage.setItem('pdf_current_user', JSON.stringify(user));
+        dismissGoogleOneTap();
+      } else {
+        localStorage.removeItem('pdf_current_user');
+      }
+      renderAuthAndUsageUI();
+    }
+
+    // Get user-specific subscription & usage record by Gmail address
+    function getUserRecord(email) {
+      if (!email) return { date: getTodayString(), count: 0, isPro: false };
+      try {
+        const key = 'user_record_' + email.toLowerCase().trim();
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.date !== getTodayString()) {
+            parsed.date = getTodayString();
+            parsed.count = 0; // reset daily counter
+          }
+          return parsed;
+        }
+      } catch (e) {}
+      return {
+        email: email,
+        date: getTodayString(),
+        count: 0,
+        isPro: false
+      };
+    }
+
+    function saveUserRecord(record) {
+      if (!record || !record.email) return;
+      try {
+        const key = 'user_record_' + record.email.toLowerCase().trim();
+        localStorage.setItem(key, JSON.stringify(record));
+      } catch (e) {}
+      renderAuthAndUsageUI();
+    }
+
+    function getTodayString() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    // Trigger Google Sign-In Flow
+    function triggerGoogleSignIn(fromOneTap = false) {
+      const defaultEmail = 'user@gmail.com';
+      const promptEmail = prompt('Sign in with your Google / Gmail account:', defaultEmail);
+      if (!promptEmail || !promptEmail.includes('@')) {
+        return;
+      }
+
+      const cleanEmail = promptEmail.trim().toLowerCase();
+      const userName = cleanEmail.split('@')[0];
+
+      const user = {
+        email: cleanEmail,
+        name: userName.charAt(0).toUpperCase() + userName.slice(1),
+        avatarLetter: userName.charAt(0).toUpperCase()
+      };
+
+      setCurrentUser(user);
+    }
+
+    function signOutUser() {
+      setCurrentUser(null);
+      sessionStorage.removeItem('google_onetap_dismissed');
+      checkGoogleOneTapPrompt();
+    }
+
+    // Render Navigation, User Badges & Daily Usage State
+    function renderAuthAndUsageUI() {
+      const user = getCurrentUser();
+
+      if (user) {
+        // User is logged in
+        googleLoginBtn.style.display = 'none';
+        userProfilePill.style.display = 'inline-flex';
+        userAvatarText.textContent = user.avatarLetter || user.email.charAt(0).toUpperCase();
+        userEmailText.textContent = user.email;
+
+        // Modal banner
+        modalAccountInfo.innerHTML = `Connected to: <strong>${user.email}</strong>`;
+        modalGoogleBtn.style.display = 'none';
+
+        // Check user subscription record
+        const record = getUserRecord(user.email);
+        if (record.isPro) {
+          usageCounterBadge.className = 'usage-badge pro';
+          usageDot.style.background = '#7c3aed';
+          usageText.innerHTML = '⭐ <strong>Pro Member (Unlimited)</strong>';
+          upgradeTopBtn.style.display = 'none';
+          return;
+        }
+
+        // Free user with active account
+        upgradeTopBtn.style.display = 'inline-flex';
+        const remaining = Math.max(0, DAILY_FREE_LIMIT - record.count);
+
+        if (remaining === 0) {
+          usageCounterBadge.className = 'usage-badge danger';
+          usageDot.style.background = '#ef4444';
+          usageText.textContent = '0 Free Left (Trial Ended)';
+        } else if (remaining === 1) {
+          usageCounterBadge.className = 'usage-badge warning';
+          usageDot.style.background = '#f59e0b';
+          usageText.textContent = '1 of 2 Free Conversions Left';
+        } else {
+          usageCounterBadge.className = 'usage-badge';
+          usageDot.style.background = '#2563eb';
+          usageText.textContent = `${remaining} of ${DAILY_FREE_LIMIT} Free Left`;
+        }
+
+      } else {
+        // User is not logged in (Guest)
+        googleLoginBtn.style.display = 'inline-flex';
+        userProfilePill.style.display = 'none';
+        upgradeTopBtn.style.display = 'inline-flex';
+
+        modalAccountInfo.innerHTML = `<span>Not signed in. Sign in to link your subscription:</span>`;
+        modalGoogleBtn.style.display = 'inline-flex';
+
+        const anonRecord = getUserRecord('guest_anonymous');
+        const remaining = Math.max(0, DAILY_FREE_LIMIT - anonRecord.count);
+
+        if (remaining === 0) {
+          usageCounterBadge.className = 'usage-badge danger';
+          usageDot.style.background = '#ef4444';
+          usageText.textContent = '0 Free Left (Trial Ended)';
+        } else {
+          usageCounterBadge.className = 'usage-badge';
+          usageDot.style.background = '#2563eb';
+          usageText.textContent = `${remaining} of ${DAILY_FREE_LIMIT} Free Left`;
+        }
+      }
+    }
+
+    // Modal Operations
+    function openProModal(reasonMessage) {
+      if (reasonMessage) {
+        modalSubMessage.innerHTML = reasonMessage;
+      } else {
+        modalSubMessage.innerHTML = 'You have used your <strong>2 free scans</strong>. Upgrade to Pro now to unlock unlimited document conversions anytime without restrictions!';
+      }
+      proModal.classList.add('active');
+    }
+
+    function closeProModal() {
+      proModal.classList.remove('active');
+    }
+
+    function selectPlan(plan) {
+      selectedPlan = plan;
+      document.getElementById('optMonthly').classList.toggle('selected', plan === 'monthly');
+      document.getElementById('optYearly').classList.toggle('selected', plan === 'yearly');
+      checkoutBtnText.textContent = plan === 'monthly' ? 'Upgrade to Pro Now ($4.99)' : 'Upgrade to Pro Now ($39/yr)';
+    }
+
+    // AUTOMATIC INSTANT PRO UPGRADE UPON PAYMENT (NO CODE TYPING!)
+    function handleAutomaticProPurchase() {
+      let user = getCurrentUser();
+
+      if (!user) {
+        alert('Please sign in with your Google / Gmail account first so your Pro subscription is linked to you!');
+        triggerGoogleSignIn();
+        user = getCurrentUser();
+        if (!user) return;
+      }
+
+      autoCheckoutBtn.disabled = true;
+      autoCheckoutBtn.innerHTML = '<span>Processing Secure Upgrade...</span>';
+
+      setTimeout(() => {
+        const record = getUserRecord(user.email);
+        record.isPro = true;
+        record.plan = selectedPlan;
+        record.purchasedAt = new Date().toISOString();
+        saveUserRecord(record);
+
+        autoCheckoutBtn.disabled = false;
+        selectPlan(selectedPlan);
+
+        closeProModal();
+
+        if (typeof confetti === 'function') {
+          confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 } });
+        }
+
+        alert(`🎉 Congratulations!\n\nYour account [${user.email}] has been AUTOMATICALLY upgraded to PRO.\n\nYou now have UNLIMITED conversions and OCR scanner access!`);
+      }, 900);
+    }
+
+    // Initialize UI on startup
+    renderAuthAndUsageUI();
+    checkGoogleOneTapPrompt();
+
+    // Dropzone Events
+    dropzone.addEventListener('click', () => {
+      fileInput.value = '';
+      fileInput.click();
+    });
     dropzone.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropzone.classList.add('dragover');
@@ -457,13 +1468,24 @@
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropzone.classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) {
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    // Also allow dropping anywhere on the main card even after a conversion!
+    const mainCard = document.querySelector('.card');
+    mainCard.addEventListener('dragover', (e) => e.preventDefault());
+    mainCard.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        resetApp();
         handleFileSelect(e.dataTransfer.files[0]);
       }
     });
 
     fileInput.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) {
+      if (e.target.files && e.target.files.length > 0) {
         handleFileSelect(e.target.files[0]);
       }
     });
@@ -477,13 +1499,18 @@
     }
 
     function handleFileSelect(file) {
+      if (!file) return;
       if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-        alert('Please upload a valid PDF file.');
+        alert('Please upload a valid PDF file (.pdf).');
         return;
       }
       currentFile = file;
       fileNameEl.textContent = file.name;
       fileSizeEl.textContent = formatBytes(file.size);
+
+      // Reset conversion states
+      convertBtn.disabled = false;
+      convertBtn.innerHTML = '<span>Convert to Word (.docx)</span>';
 
       dropzone.style.display = 'none';
       fileDetails.style.display = 'flex';
@@ -491,37 +1518,98 @@
       downloadSection.style.display = 'none';
       previewBox.style.display = 'none';
       progressContainer.style.display = 'none';
+      ocrStatusNote.style.display = 'none';
     }
 
-    removeBtn.addEventListener('click', resetApp);
-    resetBtn.addEventListener('click', resetApp);
+    removeBtn.addEventListener('click', () => {
+      resetApp();
+      fileInput.click();
+    });
+
+    resetBtn.addEventListener('click', () => {
+      const user = getCurrentUser();
+      const record = getUserRecord(user ? user.email : 'guest_anonymous');
+      if (!record.isPro && record.count >= DAILY_FREE_LIMIT) {
+        openProModal('Your free trial of <strong>2 document scans has ended</strong>! Upgrade to Pro now to convert unlimited documents.');
+        return;
+      }
+      resetApp();
+      fileInput.click();
+    });
 
     function resetApp() {
       currentFile = null;
       convertedDocBlob = null;
       fileInput.value = '';
+      convertBtn.disabled = false;
+      convertBtn.innerHTML = '<span>Convert to Word (.docx)</span>';
       dropzone.style.display = 'block';
       fileDetails.style.display = 'none';
       convertBtn.style.display = 'none';
       downloadSection.style.display = 'none';
       previewBox.style.display = 'none';
       progressContainer.style.display = 'none';
+      ocrStatusNote.style.display = 'none';
     }
 
-    // Conversion Logic
+    function updateProgress(percent, status) {
+      progressBarFill.style.width = percent + '%';
+      progressPercent.textContent = percent + '%';
+      progressStatus.textContent = status;
+    }
+
+    // Tesseract OCR Engine Setup
+    async function getOcrWorker() {
+      if (!tesseractWorker) {
+        tesseractWorker = await Tesseract.createWorker('eng', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const p = Math.round((m.progress || 0) * 100);
+              ocrDetailText.textContent = `AI Optical Recognition running: ${p}%...`;
+            }
+          }
+        });
+      }
+      return tesseractWorker;
+    }
+
+    async function renderPageToCanvas(page) {
+      const viewport = page.getViewport({ scale: 2.0 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      return canvas;
+    }
+
+    // Main Conversion Engine with Paywall Check
     convertBtn.addEventListener('click', async () => {
       if (!currentFile) return;
 
+      const user = getCurrentUser();
+      const userKey = user ? user.email : 'guest_anonymous';
+      const record = getUserRecord(userKey);
+
+      // Check Daily Free Limit: Exactly 2 Scans allowed!
+      if (!record.isPro && record.count >= DAILY_FREE_LIMIT) {
+        openProModal('Your free trial of <strong>2 document scans has ended</strong>! Upgrade to Pro now to continue converting unlimited documents with full AI/OCR support.');
+        return;
+      }
+
       convertBtn.disabled = true;
       progressContainer.style.display = 'block';
-      updateProgress(10, 'Loading PDF document...');
+      updateProgress(5, 'Loading PDF document...');
+
+      const isOcrEnabled = ocrToggle.checked;
+      let usedOcrCount = 0;
 
       try {
         const arrayBuffer = await currentFile.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const totalPages = pdf.numPages;
 
-        updateProgress(25, `Extracting text from ${totalPages} page(s)...`);
+        updateProgress(15, `Inspecting ${totalPages} page(s)...`);
 
         const docChildren = [];
         let fullExtractedPreview = '';
@@ -530,75 +1618,472 @@
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
           
-          const progress = 25 + Math.round((pageNum / totalPages) * 50);
-          updateProgress(progress, `Processing page ${pageNum} of ${totalPages}...`);
+          const baseProgress = 15 + Math.round((pageNum / totalPages) * 70);
+          updateProgress(baseProgress, `Processing page ${pageNum} of ${totalPages}...`);
 
-          // Group text items by vertical position (Y coordinate) to reconstruct lines & paragraphs
-          const linesMap = new Map();
+          let pageTextLength = 0;
           for (const item of textContent.items) {
-            if (!item.str || item.str.trim() === '') continue;
-            const y = Math.round(item.transform[5]);
-            if (!linesMap.has(y)) {
-              linesMap.set(y, []);
+            if (item.str && item.str.trim()) {
+              pageTextLength += item.str.trim().length;
             }
-            linesMap.get(y).push({
-              text: item.str,
-              x: item.transform[4],
-              fontSize: Math.round(Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1])),
-              fontName: item.fontName || ''
-            });
           }
 
-          // Sort lines descending by Y (top of page to bottom)
-          const sortedYs = Array.from(linesMap.keys()).sort((a, b) => b - a);
+          const isScannedPage = pageTextLength < 10;
 
-          for (const y of sortedYs) {
-            const lineItems = linesMap.get(y);
-            // Sort items horizontally (left to right)
-            lineItems.sort((a, b) => a.x - b.x);
+          if (isScannedPage && isOcrEnabled) {
+            ocrStatusNote.style.display = 'flex';
+            ocrDetailText.textContent = `Scanned image detected on page ${pageNum}. Running AI Optical Recognition...`;
+            usedOcrCount++;
 
-            const lineText = lineItems.map(i => i.text).join(' ').trim();
-            if (!lineText) continue;
+            const canvas = await renderPageToCanvas(page);
+            const worker = await getOcrWorker();
+            const ocrResult = await worker.recognize(canvas);
+            const ocrText = ocrResult.data.text || '';
 
-            fullExtractedPreview += lineText + '\n';
+            fullExtractedPreview += `--- [Page ${pageNum} (AI / OCR Extracted)] ---\n` + ocrText + '\n\n';
 
-            const maxFontSize = Math.max(...lineItems.map(i => i.fontSize));
-            const isBold = lineItems.some(i => i.fontName.toLowerCase().includes('bold') || i.fontName.toLowerCase().includes('black'));
+            const lines = ocrText.split('\n');
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed) continue;
 
-            // Heading vs Body Detection
-            if (maxFontSize >= 18) {
-              docChildren.push(
-                new docx.Paragraph({
-                  text: lineText,
-                  heading: docx.HeadingLevel.HEADING_1,
-                  spacing: { before: 240, after: 120 }
-                })
-              );
-            } else if (maxFontSize >= 14) {
-              docChildren.push(
-                new docx.Paragraph({
-                  text: lineText,
-                  heading: docx.HeadingLevel.HEADING_2,
-                  spacing: { before: 180, after: 80 }
-                })
-              );
-            } else {
-              docChildren.push(
-                new docx.Paragraph({
-                  children: [
-                    new docx.TextRun({
-                      text: lineText,
-                      bold: isBold,
-                      size: 22 // 11pt
+              if (trimmed.length < 50 && trimmed === trimmed.toUpperCase() && trimmed.length > 4) {
+                docChildren.push(
+                  new docx.Paragraph({
+                    text: trimmed,
+                    heading: docx.HeadingLevel.HEADING_2,
+                    spacing: { before: 200, after: 100 }
+                  })
+                );
+              } else {
+                docChildren.push(
+                  new docx.Paragraph({
+                    children: [new docx.TextRun({ text: trimmed, size: 22 })],
+                    spacing: { after: 100 }
+                  })
+                );
+              }
+            }
+
+          } else {
+            // STANDARD NATIVE TEXT EXTRACTION WITH STRUCTURAL LAYOUT PRESERVATION
+            ocrStatusNote.style.display = 'none';
+
+            const viewport = page.getViewport({ scale: 1.0 });
+            const pageWidth = viewport.width;
+
+            // Map and normalize all text items
+            const rawItems = textContent.items
+              .filter(it => it.str && it.str.trim())
+              .map(it => {
+                const fontSize = Math.round(Math.sqrt(it.transform[0] * it.transform[0] + it.transform[1] * it.transform[1]));
+                return {
+                  text: it.str,
+                  x: it.transform[4],
+                  y: it.transform[5],
+                  width: it.width || (it.str.length * (fontSize || 11) * 0.5),
+                  fontSize: fontSize || 11,
+                  fontName: it.fontName || '',
+                  isBold: (it.fontName || '').toLowerCase().includes('bold') || (it.fontName || '').toLowerCase().includes('black')
+                };
+              });
+
+            if (rawItems.length > 0) {
+              // 1. Sort items top-to-bottom, left-to-right
+              rawItems.sort((a, b) => b.y - a.y || a.x - b.x);
+
+              // 2. Cluster items into visual lines using 3.5pt vertical tolerance
+              const lines = [];
+              let currentLine = null;
+
+              for (const item of rawItems) {
+                if (!currentLine) {
+                  currentLine = { y: item.y, items: [item] };
+                  lines.push(currentLine);
+                } else if (Math.abs(currentLine.y - item.y) <= 3.5) {
+                  currentLine.items.push(item);
+                } else {
+                  currentLine = { y: item.y, items: [item] };
+                  lines.push(currentLine);
+                }
+              }
+
+              // 3. Process each line: sort items left-to-right & reconstruct clean text & segments
+              const processedLines = [];
+
+              for (const line of lines) {
+                line.items.sort((a, b) => a.x - b.x);
+
+                // Segment line into column buckets based on wide horizontal gaps (gap > 28pt)
+                const segments = [];
+                let curSeg = [line.items[0]];
+
+                for (let j = 1; j < line.items.length; j++) {
+                  const prev = line.items[j - 1];
+                  const curr = line.items[j];
+                  const gap = curr.x - (prev.x + prev.width);
+
+                  if (gap > 28) {
+                    segments.push(curSeg);
+                    curSeg = [curr];
+                  } else {
+                    curSeg.push(curr);
+                  }
+                }
+                segments.push(curSeg);
+
+                // Smart item joining helper to avoid accidental spacing inside words/tokens
+                function buildSegmentText(items) {
+                  let str = '';
+                  for (let s = 0; s < items.length; s++) {
+                    const it = items[s];
+                    if (s === 0) {
+                      str += it.text;
+                    } else {
+                      const prev = items[s - 1];
+                      const gap = it.x - (prev.x + prev.width);
+                      const needsSpace = gap >= 2.0 && 
+                        !/^[,.:;?!)\]%]/.test(it.text) && 
+                        !/^[(\[@]/.test(prev.text) && 
+                        !prev.text.endsWith('-') && 
+                        !it.text.startsWith('-');
+                      str += (needsSpace ? ' ' : '') + it.text;
+                    }
+                  }
+                  return str
+                    .replace(/\s+([,.:;?!%])/g, '$1')
+                    .replace(/([(])\s+/g, '$1')
+                    .replace(/\s+([)])/g, '$1')
+                    .replace(/([a-zA-Z0-9])\s*-\s*([a-zA-Z0-9])/g, '$1-$2')
+                    .replace(/([a-zA-Z0-9._%+-]+)\s*@\s*([a-zA-Z0-9.-]+)\s*\.\s*([a-zA-Z]{2,})/g, '$1@$2.$3')
+                    .replace(/\bBRD\s*\/\s*FRD\s*\/\s*SRS\b/g, 'BRD/FRD/SRS')
+                    .replace(/\bSDLC\s*\/\s*STLC\b/g, 'SDLC/STLC')
+                    .replace(/\bUI\s*\/\s*UX\b/g, 'UI/UX')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
+                }
+
+                const fullLineStr = buildSegmentText(line.items);
+                fullExtractedPreview += fullLineStr + '\n';
+
+                const maxFontSize = Math.max(...line.items.map(it => it.fontSize));
+                const isAllUpper = fullLineStr === fullLineStr.toUpperCase() && fullLineStr.length >= 4 && /[A-Z]/.test(fullLineStr);
+                const hasHeadingKeywords = /\b(SUMMARY|EXPERIENCE|SKILLS|COMPETENCIES|QUALIFICATIONS|EDUCATION|PROJECTS|LEADERSHIP|CERTIFICATIONS|ACHIEVEMENTS)\b/i.test(fullLineStr);
+                const isHeading = (maxFontSize >= 13 || (isAllUpper && hasHeadingKeywords && fullLineStr.length < 60)) && !/^[•\-\*▪\u2022]/.test(fullLineStr);
+
+                const isBullet = /^[•\-\*▪\u2022\u25aa\u25cf]\s*/.test(fullLineStr);
+                const isTableRow = segments.length >= 3 || (segments.length >= 2 && /\b(Degree|Program|Institute|University|Board|Year|Score|Percentage|Pursuing|Completed|CGPA)\b/i.test(fullLineStr));
+                const isTwoColSubheader = segments.length === 2 && !isHeading && !isBullet && !isTableRow && (segments[1][0].x - (segments[0][segments[0].length - 1].x + segments[0][segments[0].length - 1].width) > 35);
+
+                processedLines.push({
+                  items: line.items,
+                  y: line.y,
+                  segments: segments.map(seg => ({
+                    text: buildSegmentText(seg),
+                    startX: seg[0].x,
+                    isBold: seg.some(it => it.isBold),
+                    items: seg
+                  })),
+                  fullText: fullLineStr,
+                  maxFontSize,
+                  isHeading,
+                  isBullet,
+                  isTableRow,
+                  isTwoColSubheader
+                });
+              }
+
+              // 4. Assemble lines into semantic blocks (Headings, Tables, 2-Col Subheaders, Bullets, Flowing Paragraphs)
+              let i = 0;
+              while (i < processedLines.length) {
+                const line = processedLines[i];
+
+                // A. Check for Document Header (Name / Title / Contact on Page 1)
+                if (pageNum === 1 && i === 0 && (line.maxFontSize >= 15 || line.fullText === line.fullText.toUpperCase())) {
+                  docChildren.push(
+                    new docx.Paragraph({
+                      alignment: docx.AlignmentType.CENTER,
+                      children: [
+                        new docx.TextRun({
+                          text: line.fullText,
+                          bold: true,
+                          size: 32,
+                          color: "0E1729",
+                          font: "Arial"
+                        })
+                      ],
+                      spacing: { before: 0, after: 40 }
                     })
-                  ],
-                  spacing: { after: 100 }
-                })
-              );
+                  );
+                  i++;
+                  continue;
+                }
+
+                if (pageNum === 1 && (i === 1 || i === 2) && (line.fullText.includes('|') || line.fullText.includes('•') || line.fullText.includes('@') || line.fullText.includes('+91') || line.fullText.toLowerCase().includes('analyst'))) {
+                  const isContact = line.fullText.includes('@') || line.fullText.includes('+91') || line.fullText.toLowerCase().includes('linkedin');
+                  docChildren.push(
+                    new docx.Paragraph({
+                      alignment: docx.AlignmentType.CENTER,
+                      children: [
+                        new docx.TextRun({
+                          text: line.fullText,
+                          bold: !isContact,
+                          size: isContact ? 17 : 19,
+                          color: isContact ? "465469" : "1C4ED8",
+                          font: "Arial"
+                        })
+                      ],
+                      spacing: { before: 0, after: isContact ? 140 : 40 }
+                    })
+                  );
+                  i++;
+                  continue;
+                }
+
+                // B. Section Heading (iLovePDF Style with bottom divider line)
+                if (line.isHeading) {
+                  docChildren.push(
+                    new docx.Paragraph({
+                      heading: docx.HeadingLevel.HEADING_2,
+                      children: [
+                        new docx.TextRun({
+                          text: line.fullText.replace(/^[0-9\s]+/, ''),
+                          bold: true,
+                          size: 21,
+                          color: "1D3A8A",
+                          font: "Arial"
+                        })
+                      ],
+                      border: {
+                        bottom: {
+                          style: docx.BorderStyle.SINGLE,
+                          size: 8,
+                          space: 4,
+                          color: "CBD5E1"
+                        }
+                      },
+                      spacing: { before: 180, after: 80 }
+                    })
+                  );
+                  i++;
+                  continue;
+                }
+
+                // C. Table Block (e.g. Academic Qualifications)
+                if (line.isTableRow) {
+                  const tableRows = [];
+                  while (i < processedLines.length && processedLines[i].isTableRow) {
+                    tableRows.push(processedLines[i]);
+                    i++;
+                  }
+
+                  if (tableRows.length > 0) {
+                    try {
+                      const maxCols = Math.max(...tableRows.map(r => r.segments.length));
+                      const docxRows = tableRows.map((r, rIdx) => {
+                        const isHeader = rIdx === 0 && /\b(Degree|Program|Institute|Board|Year|Score)\b/i.test(r.fullText);
+                        const cells = [];
+
+                        for (let c = 0; c < maxCols; c++) {
+                          const seg = r.segments[c] || { text: '', isBold: false };
+                          const isCenter = c >= 2;
+                          
+                          let cellWidthPct = Math.round(100 / maxCols);
+                          if (maxCols === 4) {
+                            if (c === 0) cellWidthPct = 34;
+                            else if (c === 1) cellWidthPct = 42;
+                            else if (c === 2) cellWidthPct = 11;
+                            else cellWidthPct = 13;
+                          }
+
+                          cells.push(
+                            new docx.TableCell({
+                              width: { size: cellWidthPct, type: docx.WidthType.PERCENTAGE },
+                              shading: isHeader ? { fill: "F1F5F9" } : undefined,
+                              borders: {
+                                top: { style: docx.BorderStyle.SINGLE, size: 4, color: "CBD5E1" },
+                                bottom: { style: docx.BorderStyle.SINGLE, size: 4, color: "CBD5E1" },
+                                left: { style: docx.BorderStyle.SINGLE, size: 4, color: "CBD5E1" },
+                                right: { style: docx.BorderStyle.SINGLE, size: 4, color: "CBD5E1" }
+                              },
+                              children: [
+                                new docx.Paragraph({
+                                  alignment: isCenter ? docx.AlignmentType.CENTER : docx.AlignmentType.LEFT,
+                                  spacing: { before: 40, after: 40 },
+                                  children: [
+                                    new docx.TextRun({
+                                      text: seg.text,
+                                      bold: isHeader || seg.isBold,
+                                      size: 17,
+                                      color: isHeader ? "0E1729" : "334054",
+                                      font: "Arial"
+                                    })
+                                  ]
+                                })
+                              ]
+                            })
+                          );
+                        }
+
+                        return new docx.TableRow({
+                          tableHeader: isHeader,
+                          children: cells
+                        });
+                      });
+
+                      docChildren.push(
+                        new docx.Table({
+                          width: { size: 100, type: docx.WidthType.PERCENTAGE },
+                          rows: docxRows
+                        })
+                      );
+                      continue;
+                    } catch (tblErr) {
+                      console.warn('Table generation fallback:', tblErr);
+                    }
+                  }
+                }
+
+                // D. 2-Column Subheader (e.g. Job Company & Role vs Dates / Location)
+                if (line.isTwoColSubheader) {
+                  const leftText = line.segments[0].text;
+                  const rightText = line.segments[1].text;
+                  const leftBold = line.segments[0].isBold || true;
+
+                  try {
+                    docChildren.push(
+                      new docx.Table({
+                        width: { size: 100, type: docx.WidthType.PERCENTAGE },
+                        borders: {
+                          top: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                          bottom: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                          left: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                          right: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                          insideHorizontal: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                          insideVertical: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" }
+                        },
+                        rows: [
+                          new docx.TableRow({
+                            children: [
+                              new docx.TableCell({
+                                width: { size: 68, type: docx.WidthType.PERCENTAGE },
+                                borders: {
+                                  top: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                                  bottom: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                                  left: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                                  right: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" }
+                                },
+                                children: [
+                                  new docx.Paragraph({
+                                    children: [new docx.TextRun({ text: leftText, bold: leftBold, size: 19, color: "0E1729", font: "Arial" })],
+                                    spacing: { before: 20, after: 40 }
+                                  })
+                                ]
+                              }),
+                              new docx.TableCell({
+                                width: { size: 32, type: docx.WidthType.PERCENTAGE },
+                                borders: {
+                                  top: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                                  bottom: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                                  left: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                                  right: { style: docx.BorderStyle.NONE, size: 0, color: "FFFFFF" }
+                                },
+                                children: [
+                                  new docx.Paragraph({
+                                    alignment: docx.AlignmentType.RIGHT,
+                                    children: [new docx.TextRun({ text: rightText, size: 18, color: "465469", font: "Arial" })],
+                                    spacing: { before: 20, after: 40 }
+                                  })
+                                ]
+                              })
+                            ]
+                          })
+                        ]
+                      })
+                    );
+                    i++;
+                    continue;
+                  } catch (err) {}
+                }
+
+                // E. Bullet Point (with bold lead and multi-line continuation)
+                if (line.isBullet) {
+                  let cleanedBulletText = line.fullText.replace(/^[•\-\*▪\u2022\u25aa\u25cf]\s*/, '').trim();
+                  i++;
+
+                  // Multi-line continuation: gather subsequent lines that belong to this bullet
+                  while (
+                    i < processedLines.length &&
+                    !processedLines[i].isBullet &&
+                    !processedLines[i].isHeading &&
+                    !processedLines[i].isTableRow &&
+                    !processedLines[i].isTwoColSubheader &&
+                    Math.abs(processedLines[i].y - processedLines[i-1].y) < 26
+                  ) {
+                    cleanedBulletText += ' ' + processedLines[i].fullText.trim();
+                    i++;
+                  }
+
+                  // Split bold lead if contains ':' or '-'
+                  const colonIdx = cleanedBulletText.indexOf(':');
+                  const runs = [];
+
+                  if (colonIdx > 0 && colonIdx < 50) {
+                    const lead = cleanedBulletText.substring(0, colonIdx + 1);
+                    const rest = cleanedBulletText.substring(colonIdx + 1);
+                    runs.push(new docx.TextRun({ text: lead, bold: true, size: 18, color: "0E1729", font: "Arial" }));
+                    runs.push(new docx.TextRun({ text: rest, size: 18, color: "334054", font: "Arial" }));
+                  } else {
+                    runs.push(new docx.TextRun({ text: cleanedBulletText, size: 18, color: "334054", font: "Arial" }));
+                  }
+
+                  docChildren.push(
+                    new docx.Paragraph({
+                      children: [
+                        new docx.TextRun({ text: "• ", color: "1D3A8A", bold: true, size: 18, font: "Arial" }),
+                        ...runs
+                      ],
+                      indent: { left: 360, hanging: 220 },
+                      spacing: { before: 20, after: 40, line: 240 }
+                    })
+                  );
+                  continue;
+                }
+
+                // F. Standard Body Paragraph (with multi-line continuity e.g. Professional Summary)
+                let bodyText = line.fullText.trim();
+                i++;
+
+                while (
+                  i < processedLines.length &&
+                  !processedLines[i].isBullet &&
+                  !processedLines[i].isHeading &&
+                  !processedLines[i].isTableRow &&
+                  !processedLines[i].isTwoColSubheader &&
+                  Math.abs(processedLines[i].y - processedLines[i-1].y) < 24
+                ) {
+                  bodyText += ' ' + processedLines[i].fullText.trim();
+                  i++;
+                }
+
+                docChildren.push(
+                  new docx.Paragraph({
+                    children: [
+                      new docx.TextRun({
+                        text: bodyText,
+                        size: 18,
+                        color: "334054",
+                        font: "Arial"
+                      })
+                    ],
+                    alignment: docx.AlignmentType.BOTH,
+                    spacing: { before: 0, after: 120, line: 250 }
+                  })
+                );
+              }
             }
           }
 
-          // Add page break if multi-page
           if (pageNum < totalPages) {
             docChildren.push(
               new docx.Paragraph({
@@ -608,44 +2093,64 @@
           }
         }
 
-        updateProgress(85, 'Building Word (.docx) file...');
+        ocrStatusNote.style.display = 'none';
+        updateProgress(90, 'Packaging Word (.docx) document...');
 
-        // Assemble docx document
         const doc = new docx.Document({
           sections: [{
-            properties: {},
+            properties: {
+              page: {
+                margin: {
+                  top: 500,
+                  bottom: 400,
+                  left: 708,
+                  right: 708
+                }
+              }
+            },
             children: docChildren.length > 0 ? docChildren : [
-              new docx.Paragraph({ text: "(No selectable text found in PDF. It may contain scanned images.)" })
+              new docx.Paragraph({ text: "(No extractable content found in this PDF.)" })
             ]
           }]
         });
 
-        // Pack into binary blob
         convertedDocBlob = await docx.Packer.toBlob(doc);
 
-        updateProgress(100, 'Conversion Complete!');
+        // Count successful conversion
+        if (!record.isPro) {
+          record.count += 1;
+          saveUserRecord(record);
+        }
 
-        // Display preview
+        updateProgress(100, usedOcrCount > 0 ? `Complete! (${usedOcrCount} scanned page(s) OCR processed)` : 'Conversion Complete!');
+
         previewBox.style.display = 'block';
-        previewContent.textContent = fullExtractedPreview || '(No selectable text found)';
+        previewContent.textContent = fullExtractedPreview || '(No text content recognized)';
+        if (usedOcrCount > 0) {
+          ocrModeBadge.style.display = 'inline-flex';
+          ocrModeBadge.textContent = `✨ AI OCR Applied (${usedOcrCount} pages)`;
+        } else {
+          ocrModeBadge.style.display = 'none';
+        }
 
-        // Display download button
         convertBtn.style.display = 'none';
         downloadSection.style.display = 'block';
+
+        // Check if this was their 2nd scan! If so, trigger the Free Trial Ended modal after 2.5 seconds to show them Pro features
+        if (!record.isPro && record.count >= DAILY_FREE_LIMIT) {
+          setTimeout(() => {
+            openProModal('Congratulations on completing your 2 free document scans! <strong>Your Free Trial has now ended.</strong> Upgrade to Pro to continue converting unlimited documents anytime!');
+          }, 2500);
+        }
 
       } catch (err) {
         console.error(err);
         alert('An error occurred during conversion: ' + err.message);
         convertBtn.disabled = false;
         progressContainer.style.display = 'none';
+        ocrStatusNote.style.display = 'none';
       }
     });
-
-    function updateProgress(percent, status) {
-      progressBarFill.style.width = percent + '%';
-      progressPercent.textContent = percent + '%';
-      progressStatus.textContent = status;
-    }
 
     downloadBtn.addEventListener('click', () => {
       if (!convertedDocBlob || !currentFile) return;

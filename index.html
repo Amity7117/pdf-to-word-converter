@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF to Word Converter</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- PDF.js for reading and parsing PDF files in the browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- docx.js for generating genuine Microsoft Word (.docx) files -->
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+  <!-- FileSaver.js for triggering browser file downloads -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --success-hover: #15803d;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 16px;
+      --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 14px;
+      background: #eff6ff;
+      color: var(--primary);
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      border: 1px solid #dbeafe;
+    }
+
+    .title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px;
+      transition: all 0.2s ease;
+    }
+
+    /* Drop Zone */
+    .dropzone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      background: #fafafa;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+
+    .dropzone-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 16px;
+      background: #eff6ff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+
+    .dropzone-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .dropzone-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .dropzone-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    /* File Info & Processing State */
+    .file-details {
+      display: none;
+      margin-top: 24px;
+      padding: 16px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .file-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .file-icon {
+      color: #ef4444;
+      background: #fee2e2;
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+    }
+
+    .file-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .file-name {
+      font-weight: 600;
+      font-size: 14px;
+      max-width: 320px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-size {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Progress bar */
+    .progress-container {
+      display: none;
+      margin-top: 24px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: var(--primary);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Action buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      margin-top: 20px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+      margin-top: 20px;
+    }
+
+    .btn-success:hover {
+      background: var(--success-hover);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    .btn-outline:hover {
+      background: #f1f5f9;
+      color: var(--text-main);
+    }
+
+    /* Preview Box */
+    .preview-box {
+      display: none;
+      margin-top: 24px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      background: #ffffff;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .preview-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .preview-content {
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    /* Footer Trust Banner */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    .feature-item {
+      text-align: center;
+      padding: 12px;
+    }
+
+    .feature-icon {
+      font-size: 20px;
+      margin-bottom: 6px;
+    }
+
+    .feature-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .feature-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <span class="badge">100% Free & Secure</span>
+      <h1 class="title">PDF to Word Converter</h1>
+      <p class="subtitle">Upload your PDF document to convert it into an editable Microsoft Word (.docx) file instantly.</p>
+    </div>
+
+    <div class="card">
+      <!-- Upload Zone -->
+      <div id="dropzone" class="dropzone">
+        <div class="dropzone-icon">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+          </svg>
+        </div>
+        <div class="dropzone-title">Click to upload or drag & drop your PDF</div>
+        <div class="dropzone-subtitle">Supports multi-page text, headers, and paragraphs</div>
+        <input type="file" id="fileInput" accept="application/pdf">
+      </div>
+
+      <!-- File Details -->
+      <div id="fileDetails" class="file-details" style="display: none;">
+        <div class="file-meta">
+          <div class="file-icon">
+            <svg fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/>
+            </svg>
+          </div>
+          <div>
+            <div id="fileName" class="file-name">document.pdf</div>
+            <div id="fileSize" class="file-size">0 KB</div>
+          </div>
+        </div>
+        <button id="removeBtn" class="btn-outline" style="width: auto; padding: 6px 12px; margin: 0; font-size: 12px;">Change</button>
+      </div>
+
+      <!-- Progress Section -->
+      <div id="progressContainer" class="progress-container">
+        <div class="progress-header">
+          <span id="progressStatus">Reading PDF...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="progressBarFill" class="progress-bar-fill"></div>
+        </div>
+      </div>
+
+      <!-- Live Text Preview -->
+      <div id="previewBox" class="preview-box">
+        <div class="preview-title">Extracted Content Preview:</div>
+        <div id="previewContent" class="preview-content"></div>
+      </div>
+
+      <!-- Convert Button -->
+      <button id="convertBtn" class="btn btn-primary" style="display: none;">
+        <span>Convert to Word (.docx)</span>
+      </button>
+
+      <!-- Download Button -->
+      <div id="downloadSection" style="display: none;">
+        <button id="downloadBtn" class="btn btn-success">
+          <svg style="width:20px;height:20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+          </svg>
+          <span>Download Word Document (.docx)</span>
+        </button>
+        <button id="resetBtn" class="btn btn-outline">Convert Another Document</button>
+      </div>
+    </div>
+
+    <!-- Trust Features -->
+    <div class="features">
+      <div class="feature-item">
+        <div class="feature-icon">🔒</div>
+        <div class="feature-title">100% Client-Side</div>
+        <div class="feature-desc">Files never leave your browser.</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Fast Conversion</div>
+        <div class="feature-desc">Reconstructs text and headings.</div>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon">📄</div>
+        <div class="feature-title">Real .docx Output</div>
+        <div class="feature-desc">Compatible with Word & Google Docs.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Setup PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileDetails = document.getElementById('fileDetails');
+    const fileNameEl = document.getElementById('fileName');
+    const fileSizeEl = document.getElementById('fileSize');
+    const removeBtn = document.getElementById('removeBtn');
+    const convertBtn = document.getElementById('convertBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressStatus = document.getElementById('progressStatus');
+    const progressPercent = document.getElementById('progressPercent');
+    const previewBox = document.getElementById('previewBox');
+    const previewContent = document.getElementById('previewContent');
+    const downloadSection = document.getElementById('downloadSection');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let currentFile = null;
+    let convertedDocBlob = null;
+
+    // Dropzone click & drag events
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function handleFileSelect(file) {
+      if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+        alert('Please upload a valid PDF file.');
+        return;
+      }
+      currentFile = file;
+      fileNameEl.textContent = file.name;
+      fileSizeEl.textContent = formatBytes(file.size);
+
+      dropzone.style.display = 'none';
+      fileDetails.style.display = 'flex';
+      convertBtn.style.display = 'inline-flex';
+      downloadSection.style.display = 'none';
+      previewBox.style.display = 'none';
+      progressContainer.style.display = 'none';
+    }
+
+    removeBtn.addEventListener('click', resetApp);
+    resetBtn.addEventListener('click', resetApp);
+
+    function resetApp() {
+      currentFile = null;
+      convertedDocBlob = null;
+      fileInput.value = '';
+      dropzone.style.display = 'block';
+      fileDetails.style.display = 'none';
+      convertBtn.style.display = 'none';
+      downloadSection.style.display = 'none';
+      previewBox.style.display = 'none';
+      progressContainer.style.display = 'none';
+    }
+
+    // Conversion Logic
+    convertBtn.addEventListener('click', async () => {
+      if (!currentFile) return;
+
+      convertBtn.disabled = true;
+      progressContainer.style.display = 'block';
+      updateProgress(10, 'Loading PDF document...');
+
+      try {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const totalPages = pdf.numPages;
+
+        updateProgress(25, `Extracting text from ${totalPages} page(s)...`);
+
+        const docChildren = [];
+        let fullExtractedPreview = '';
+
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          
+          const progress = 25 + Math.round((pageNum / totalPages) * 50);
+          updateProgress(progress, `Processing page ${pageNum} of ${totalPages}...`);
+
+          // Group text items by vertical position (Y coordinate) to reconstruct lines & paragraphs
+          const linesMap = new Map();
+          for (const item of textContent.items) {
+            if (!item.str || item.str.trim() === '') continue;
+            const y = Math.round(item.transform[5]);
+            if (!linesMap.has(y)) {
+              linesMap.set(y, []);
+            }
+            linesMap.get(y).push({
+              text: item.str,
+              x: item.transform[4],
+              fontSize: Math.round(Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1])),
+              fontName: item.fontName || ''
+            });
+          }
+
+          // Sort lines descending by Y (top of page to bottom)
+          const sortedYs = Array.from(linesMap.keys()).sort((a, b) => b - a);
+
+          for (const y of sortedYs) {
+            const lineItems = linesMap.get(y);
+            // Sort items horizontally (left to right)
+            lineItems.sort((a, b) => a.x - b.x);
+
+            const lineText = lineItems.map(i => i.text).join(' ').trim();
+            if (!lineText) continue;
+
+            fullExtractedPreview += lineText + '\n';
+
+            const maxFontSize = Math.max(...lineItems.map(i => i.fontSize));
+            const isBold = lineItems.some(i => i.fontName.toLowerCase().includes('bold') || i.fontName.toLowerCase().includes('black'));
+
+            // Heading vs Body Detection
+            if (maxFontSize >= 18) {
+              docChildren.push(
+                new docx.Paragraph({
+                  text: lineText,
+                  heading: docx.HeadingLevel.HEADING_1,
+                  spacing: { before: 240, after: 120 }
+                })
+              );
+            } else if (maxFontSize >= 14) {
+              docChildren.push(
+                new docx.Paragraph({
+                  text: lineText,
+                  heading: docx.HeadingLevel.HEADING_2,
+                  spacing: { before: 180, after: 80 }
+                })
+              );
+            } else {
+              docChildren.push(
+                new docx.Paragraph({
+                  children: [
+                    new docx.TextRun({
+                      text: lineText,
+                      bold: isBold,
+                      size: 22 // 11pt
+                    })
+                  ],
+                  spacing: { after: 100 }
+                })
+              );
+            }
+          }
+
+          // Add page break if multi-page
+          if (pageNum < totalPages) {
+            docChildren.push(
+              new docx.Paragraph({
+                children: [new docx.PageBreak()]
+              })
+            );
+          }
+        }
+
+        updateProgress(85, 'Building Word (.docx) file...');
+
+        // Assemble docx document
+        const doc = new docx.Document({
+          sections: [{
+            properties: {},
+            children: docChildren.length > 0 ? docChildren : [
+              new docx.Paragraph({ text: "(No selectable text found in PDF. It may contain scanned images.)" })
+            ]
+          }]
+        });
+
+        // Pack into binary blob
+        convertedDocBlob = await docx.Packer.toBlob(doc);
+
+        updateProgress(100, 'Conversion Complete!');
+
+        // Display preview
+        previewBox.style.display = 'block';
+        previewContent.textContent = fullExtractedPreview || '(No selectable text found)';
+
+        // Display download button
+        convertBtn.style.display = 'none';
+        downloadSection.style.display = 'block';
+
+      } catch (err) {
+        console.error(err);
+        alert('An error occurred during conversion: ' + err.message);
+        convertBtn.disabled = false;
+        progressContainer.style.display = 'none';
+      }
+    });
+
+    function updateProgress(percent, status) {
+      progressBarFill.style.width = percent + '%';
+      progressPercent.textContent = percent + '%';
+      progressStatus.textContent = status;
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      if (!convertedDocBlob || !currentFile) return;
+      const outputName = currentFile.name.replace(/\.pdf$/i, '') + '.docx';
+      saveAs(convertedDocBlob, outputName);
+    });
+  </script>
+</body>
+</html>
